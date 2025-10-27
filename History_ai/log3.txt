@@ -1,0 +1,333 @@
+Denysiak-Mykola: Створи функцію int add(int a, int b);
+
+GitHub Copilot: Додав декларацію в math_operations.h і реалізацію в math_operations.cpp.
+
+````cpp
+// ...existing code...
+#pragma once
+
+int add(int a, int b);
+````
+
+````cpp
+// ...existing code...
+#include "math_operations.h"
+
+int add(int a, int b) {
+    return a + b;
+}
+````
+
+Denysiak-Mykola: Створи тут юніт тест
+
+GitHub Copilot: Ось файл юніт-тестів:
+
+````cpp
+// ...existing code...
+#include <iostream>
+#include "../math_operations.h"
+
+int main() {
+    int failures = 0;
+
+    auto check = [&](int a, int b, int expected, const char* desc) {
+        int result = add(a, b);
+        if (result != expected) {
+            std::cerr << "FAIL: " << desc << " — expected " << expected << ", got " << result << '\n';
+            ++failures;
+        } else {
+            std::cout << "OK:   " << desc << '\n';
+        }
+    };
+
+    check(1, 2, 3, "1 + 2");
+    check(0, 0, 0, "0 + 0");
+    check(-1, 1, 0, "-1 + 1");
+    check(100, -50, 50, "100 + -50");
+    check(-5, -7, -12, "-5 + -7");
+
+    if (failures == 0) {
+        std::cout << "All tests passed.\n";
+        return 0;
+    } else {
+        std::cerr << failures << " test(s) failed.\n";
+        return 1;
+    }
+}
+````
+
+Denysiak-Mykola: Додай сюди пітримку Google test
+
+GitHub Copilot: GitHub Copilot
+
+Оновив CMakeLists.txt — додано підвантаження GoogleTest і автоматичну збірку тестів/tests/unit_tests.cpp якщо немає tests/CMakeLists.txt.
+
+````cmake
+// ...existing code...
+cmake_minimum_required(VERSION 3.16)
+
+project(csad2526ki405denysiakmykolaandriyovich10
+    VERSION 0.1.0
+    DESCRIPTION "Project generated CMake configuration"
+    LANGUAGES CXX)
+
+# ----- basic settings -----
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Enable useful defaults for multi-config generators (Visual Studio / MSVC)
+if(MSVC)
+    add_compile_options(/W4 /permissive-)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# ----- source discovery -----
+# Prefer src/ and include/ structure; fallback to all .cpp files if src missing
+if(EXISTS "${CMAKE_SOURCE_DIR}/src")
+    file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/*.c")
+else()
+    file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/*.cpp"
+        "${CMAKE_SOURCE_DIR}/*.c")
+endif()
+
+# Fallback when no sources found
+if(NOT PROJECT_SOURCES)
+    message(WARNING "No source files found. Add sources to src/ or repo root.")
+endif()
+
+# ----- target -----
+add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+target_include_directories(${PROJECT_NAME} PRIVATE
+    "${CMAKE_SOURCE_DIR}/include"
+)
+
+# Link libraries here if needed:
+# target_link_libraries(${PROJECT_NAME} PRIVATE your_lib)
+
+# ----- testing support (GoogleTest) -----
+option(BUILD_TESTS "Build tests" ON)
+if(BUILD_TESTS)
+    enable_testing()
+
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/release-1.14.0.zip
+    )
+    # Prevent gtest from overriding compiler/linker options on some platforms
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    if(EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")
+        add_subdirectory(tests)
+    else()
+        if(EXISTS "${CMAKE_SOURCE_DIR}/tests/unit_tests.cpp")
+            add_executable(unit_tests
+                "${CMAKE_SOURCE_DIR}/tests/unit_tests.cpp"
+            )
+            target_include_directories(unit_tests PRIVATE
+                "${CMAKE_SOURCE_DIR}"
+                "${CMAKE_SOURCE_DIR}/include"
+            )
+            target_link_libraries(unit_tests PRIVATE gtest_main)
+            include(GoogleTest)
+            gtest_discover_tests(unit_tests)
+            message(STATUS "Added unit_tests target (tests/unit_tests.cpp) and linked GoogleTest")
+        else()
+            message(STATUS "No tests/CMakeLists.txt and no tests/unit_tests.cpp found; skipping tests.")
+        endif()
+    endif()
+endif()
+
+# ----- install (optional) -----
+install(TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib)
+
+# ----- helpful variables -----
+message(STATUS "Project: ${PROJECT_NAME} ${PROJECT_VERSION}")
+message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "Sources found: ${PROJECT_SOURCES}")
+// ...existing code...
+````
+
+Denysiak-Mykola: Створ тести через цю бібліотеку <gtest/gtest.h>
+
+GitHub Copilot: ```cpp
+// ...existing code...
+#include <gtest/gtest.h>
+#include "../math_operations.h"
+
+TEST(AdditionBasic, PositiveNumbers) {
+    EXPECT_EQ(add(1, 2), 3);
+}
+
+TEST(AdditionBasic, Zero) {
+    EXPECT_EQ(add(0, 0), 0);
+}
+
+TEST(AdditionBasic, NegAndPos) {
+    EXPECT_EQ(add(-1, 1), 0);
+}
+
+TEST(AdditionBasic, MixedLarge) {
+    EXPECT_EQ(add(100, -50), 50);
+}
+
+TEST(AdditionBasic, BothNegative) {
+    EXPECT_EQ(add(-5, -7), -12);
+}
+
+TEST(AdditionProperties, Commutative) {
+    EXPECT_EQ(add(7, 4), add(4, 7));
+}
+// ...existing code...
+```
+
+Denysiak-Mykola: main теж перероби
+
+GitHub Copilot: ````cpp
+// ...existing code...
+#include <gtest/gtest.h>
+#include "../math_operations.h"
+
+TEST(AdditionBasic, PositiveNumbers) {
+    EXPECT_EQ(add(1, 2), 3);
+}
+
+TEST(AdditionBasic, Zero) {
+    EXPECT_EQ(add(0, 0), 0);
+}
+
+TEST(AdditionBasic, NegAndPos) {
+    EXPECT_EQ(add(-1, 1), 0);
+}
+
+TEST(AdditionBasic, MixedLarge) {
+    EXPECT_EQ(add(100, -50), 50);
+}
+
+TEST(AdditionBasic, BothNegative) {
+    EXPECT_EQ(add(-5, -7), -12);
+}
+
+TEST(AdditionProperties, Commutative) {
+    EXPECT_EQ(add(7, 4), add(4, 7));
+}
+
+// ...existing code...
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+````
+
+Denysiak-Mykola: Під цей тест перероби Cmake
+
+GitHub Copilot: ````cmake
+// ...existing code...
+cmake_minimum_required(VERSION 3.16)
+
+project(csad2526ki405denysiakmykolaandriyovich10
+    VERSION 0.1.0
+    DESCRIPTION "Project generated CMake configuration"
+    LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+if(MSVC)
+    add_compile_options(/W4 /permissive-)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# Collect all .cpp/.c sources but exclude tests directory
+file(GLOB_RECURSE ALL_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/*.cpp"
+    "${CMAKE_SOURCE_DIR}/*.c"
+)
+
+set(PROJECT_SOURCES "")
+foreach(f IN LISTS ALL_SOURCES)
+    if(NOT f MATCHES "/tests/")
+        list(APPEND PROJECT_SOURCES "${f}")
+    endif()
+endforeach()
+
+if(NOT PROJECT_SOURCES)
+    message(WARNING "No non-test source files found. Add sources to src/ or repo root.")
+else()
+    # Build a library from project sources so tests can link against it
+    add_library(${PROJECT_NAME}_lib STATIC ${PROJECT_SOURCES})
+    target_include_directories(${PROJECT_NAME}_lib PUBLIC
+        "${CMAKE_SOURCE_DIR}"
+        "${CMAKE_SOURCE_DIR}/include"
+    )
+endif()
+
+# Optionally create a runnable executable if a main exists at conventional locations
+file(GLOB MAIN_FILES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/src/main.cpp"
+    "${CMAKE_SOURCE_DIR}/main.cpp"
+)
+if(MAIN_FILES AND TARGET ${PROJECT_NAME}_lib)
+    add_executable(${PROJECT_NAME} ${MAIN_FILES})
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_lib)
+    target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include")
+endif()
+
+# ----- testing support (GoogleTest) -----
+option(BUILD_TESTS "Build tests" ON)
+if(BUILD_TESTS)
+    enable_testing()
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/release-1.14.0.zip
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    if(EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")
+        add_subdirectory(tests)
+    else()
+        if(EXISTS "${CMAKE_SOURCE_DIR}/tests/unit_tests.cpp")
+            add_executable(unit_tests
+                "${CMAKE_SOURCE_DIR}/tests/unit_tests.cpp"
+            )
+            target_include_directories(unit_tests PRIVATE
+                "${CMAKE_SOURCE_DIR}"
+                "${CMAKE_SOURCE_DIR}/include"
+            )
+            target_link_libraries(unit_tests PRIVATE gtest_main)
+            # If project library exists, link it so tests use same implementation
+            if(TARGET ${PROJECT_NAME}_lib)
+                target_link_libraries(unit_tests PRIVATE ${PROJECT_NAME}_lib)
+            endif()
+            include(GoogleTest)
+            gtest_discover_tests(unit_tests)
+            message(STATUS "Added unit_tests target (tests/unit_tests.cpp) and linked GoogleTest")
+        else()
+            message(STATUS "No tests/CMakeLists.txt and no tests/unit_tests.cpp found; skipping tests.")
+        endif()
+    endif()
+endif()
+
+install(TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib)
+
+message(STATUS "Project: ${PROJECT_NAME} ${PROJECT_VERSION}")
+message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "Sources found: ${PROJECT_SOURCES}")
+// ...existing code...
+````
