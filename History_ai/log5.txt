@@ -1,0 +1,81 @@
+Denysiak-Mykola: У файлі ci.yml використовуйте Copilot для 
+генерації робочого процесу (workflow) з наступними вимогами: 
+○ Trigger: Запускати акцію при push або pull request у гілку, що містить в 
+назві  develop чи master . 
+○ Job: Створити одну Job (наприклад, cross_build). 
+○ Strategy: Використати матрицю (strategy: matrix) для запуску білду 
+на трьох ОС: 
+■ runs-on: ubuntu-latest (Linux) 
+■ runs-on: windows-latest (Windows) 
+■ runs-on: macos-latest (macOS) 
+○ Steps: Кожен білд повинен включати кроки: 
+■ Checkout коду (actions/checkout@v4). 
+■ Встановлення CMake (якщо потрібно). 
+■ Запуск команд конфігурації та білдування (запуск скрипту з Етапу 
+3). 
+■ Deploy.
+
+GitHub Copilot: Ось готовий GitHub Actions workflow для файлу ci.yml — підходить під ваші вимоги (trigger за гілками з develop/master, матриця трьох ОС, checkout, встановлення CMake, конфігурація/білд і деплой через upload-artifact).
+
+````yaml
+// ...existing code...
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    name: Cross build on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake on Linux / macOS
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew update
+            brew install cmake
+          fi
+        shell: bash
+
+      - name: Install CMake on Windows
+        if: runner.os == 'Windows'
+        run: choco install -y cmake --installargs '"ADD_CMAKE_TO_PATH=System"'
+        shell: powershell
+
+      - name: Configure with CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+
+      - name: Build
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmake --build build --config Release -- /m
+          else
+            cmake --build build --config Release -- -j$(nproc)
+          fi
+        shell: bash
+
+      - name: Upload build artifacts (Deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build/**
+// ...existing code...
+````

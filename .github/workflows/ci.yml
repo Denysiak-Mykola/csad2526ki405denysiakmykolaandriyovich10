@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    name: Cross-platform build and deploy
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # 1️⃣ Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Install CMake (Linux)
+      - name: Install CMake (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential git
+
+      # 2️⃣ Install CMake (macOS)
+      - name: Install CMake (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake git
+
+      # 2️⃣ Install CMake (Windows)
+      - name: Ensure CMake is available (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake --version
+        shell: pwsh
+
+      # 3️⃣ Build using platform-specific script
+      - name: Build project
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ] || [ "$RUNNER_OS" = "macOS" ]; then
+            chmod +x ./ci.sh
+            ./ci.sh
+          else
+            ./ci.bat
+          fi
+        shell: bash
+
+      # 4️⃣ Deploy artifacts (example placeholder)
+      - name: Deploy artifacts
+        run: |
+          echo "Deploying build artifacts..."
+          echo "Build on $RUNNER_OS completed successfully."
+        shell: bash
