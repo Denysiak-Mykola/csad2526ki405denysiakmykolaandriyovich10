@@ -1,0 +1,1026 @@
+Denysiak-Mykola: Зненеруй ci.bat згідно такх вимог:
+○ Створення каталогу білдування (mkdir build). 
+○ Перехід у каталог (cd build). 
+○ Конфігурування проекту за допомогою CMake (cmake ..). 
+○ Білдування проєкту (cmake --build .). 
+○ Забезпечте права на виконання (chmod +x build.sh) та зафіксуйте 
+зміни. 
+○ Створіть крок, який запускає тести за допомогою CTest (частина CMake), 
+і переконайтеся, що він виконується на всіх трьох ОС: 
+
+GitHub Copilot: GitHub Copilot
+
+````bat
+@echo off
+setlocal
+
+rem Create build directory and enter it
+if not exist build (
+  mkdir build
+)
+cd build
+
+rem Configure project
+cmake .. || (echo CMake configure failed & exit /b 1)
+
+rem Build project (use Release config on Windows)
+if "%OS%"=="Windows_NT" (
+  cmake --build . --config Release || (echo Build failed & exit /b 1)
+) else (
+  cmake --build . || (echo Build failed & exit /b 1)
+)
+
+rem Run tests with CTest (output on failure)
+ctest --output-on-failure || (echo Tests failed & exit /b 1)
+
+rem Return to repo root
+cd ..
+
+rem Create a POSIX build script for Linux/macOS if missing (build.sh)
+if not exist build.sh (
+  echo #!/usr/bin/env bash>build.sh
+  echo set -e>>build.sh
+  echo mkdir -p build>>build.sh
+  echo cd build>>build.sh
+  echo cmake ..>>build.sh
+  echo cmake --build .>>build.sh
+  echo ctest --output-on-failure>>build.sh
+)
+
+rem Ensure execute permission for build.sh (try git and bash methods)
+git update-index --add --chmod=+x build.sh 2>nul || (
+  bash -c "chmod +x build.sh" 2>nul || echo "Could not set executable bit automatically; set chmod +x build.sh on Unix-like systems"
+)
+
+rem Stage and commit the change if running inside a git repo and commit possible
+git rev-parse --is-inside-work-tree >nul 2>&1
+if %ERRORLEVEL%==0 (
+  git add build.sh >nul 2>&1
+  git commit -m "Add cross-platform build script (build.sh) and CI batch runner (ci.bat)" >nul 2>&1 || echo "No commit performed (no changes to commit or git not configured)"
+) else (
+  echo "Not a git repository; skipping commit."
+)
+
+echo CI steps completed.
+endlocal
+exit /b 0
+```// filepath: d:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\ci.bat
+@echo off
+setlocal
+
+rem Create build directory and enter it
+if not exist build (
+  mkdir build
+)
+cd build
+
+rem Configure project
+cmake .. || (echo CMake configure failed & exit /b 1)
+
+rem Build project (use Release config on Windows)
+if "%OS%"=="Windows_NT" (
+  cmake --build . --config Release || (echo Build failed & exit /b 1)
+) else (
+  cmake --build . || (echo Build failed & exit /b 1)
+)
+
+rem Run tests with CTest (output on failure)
+ctest --output-on-failure || (echo Tests failed & exit /b 1)
+
+rem Return to repo root
+cd ..
+
+rem Create a POSIX build script for Linux/macOS if missing (build.sh)
+if not exist build.sh (
+  echo #!/usr/bin/env bash>build.sh
+  echo set -e>>build.sh
+  echo mkdir -p build>>build.sh
+  echo cd build>>build.sh
+  echo cmake ..>>build.sh
+  echo cmake --build .>>build.sh
+  echo ctest --output-on-failure>>build.sh
+)
+
+rem Ensure execute permission for build.sh (try git and bash methods)
+git update-index --add --chmod=+x build.sh 2>nul || (
+  bash -c "chmod +x build.sh" 2>nul || echo "Could not set executable bit automatically; set chmod +x build.sh on Unix-like systems"
+)
+
+rem Stage and commit the change if running inside a git repo and commit possible
+git rev-parse --is-inside-work-tree >nul 2>&1
+if %ERRORLEVEL%==0 (
+  git add build.sh >nul 2>&1
+  git commit -m "Add cross-platform build script (build.sh) and CI batch runner (ci.bat)" >nul 2>&1 || echo "No commit performed (no changes to commit or git not configured)"
+) else (
+  echo "Not a git repository; skipping commit."
+)
+
+echo CI steps completed.
+endlocal
+exit /b 0
+
+
+Denysiak-Mykola: Коли активовую ci.bat. Не сторює вихідний файл hello. Як можна це пофіксити. Чи можливо тут є помилки
+
+GitHub Copilot: GitHub Copilot
+
+Коротко — чому не з’являється виконуваний файл і як це виправити.
+
+Причина
+- У проекті немає файлу main (src/main.cpp або main.cpp), тому CMake не створює виконувальний тарґет за умовою у CMakeLists.txt.
+- На Windows збірка за конфігурацією Release кладе exe у підпапку Release (build/Release/hello.exe), тому можливо ви просто його не помітили.
+
+Швидке виправлення (додати простий main)
+- Створіть src/main.cpp з таким вмістом — це створить виконувальний файл і продемонструє роботу add():
+
+````cpp
+#include <iostream>
+#include "math_operations.h"
+
+int main() {
+    std::cout << "hello\n";
+    std::cout << "1 + 2 = " << add(1, 2) << '\n';
+    return 0;
+}
+````
+
+Після цього запустіть ci.bat — CMake знайде src/main.cpp і додасть виконувальний тарґет (ім’я тарґету залежить від CMakeLists: якщо використовується PROJECT_NAME як ім’я тарґету — буде csad2526ki405denysiakmykolaandriyovich10, або змініть CMake, щоб створювати тарґет з ім'ям hello).
+
+Опціонально: змінити CMake щоб тарґет називався hello
+- Додайте після створення бібліотеки та перед секцією тестів:
+
+````cmake
+# ...existing code...
+if(EXISTS "${CMAKE_SOURCE_DIR}/src/main.cpp" AND TARGET ${PROJECT_NAME}_lib)
+    add_executable(hello "${CMAKE_SOURCE_DIR}/src/main.cpp")
+    target_link_libraries(hello PRIVATE ${PROJECT_NAME}_lib)
+    target_include_directories(hello PRIVATE "${CMAKE_SOURCE_DIR}/include")
+endif()
+# ...existing code...
+````
+
+Додаткові поради
+- На Windows дивіться у build/Release\ (якщо cmake --build . --config Release).
+- Якщо хочете, щоб ci.bat явно повідомляв де знайти exe — додайте в кінець скрипта рядок, який виводить повний шлях (наприклад echo %cd%\Release\hello.exe або bash еквівалент).
+- Після додавання файлу main або внесення змін у CMake — перезапустіть ci.bat (видаліть папку build перед новим конфігуруванням для чистоти).
+
+Якщо хочеш — можу:
+- Додати src/main.cpp у репозиторій зараз,
+- Або внести зміну до CMakeLists.txt щоб створювати тарґет hello автоматично.
+
+Denysiak-Mykola: Як можна зупинити cmd щоб переглянути що сталось
+
+GitHub Copilot: GitHub Copilot
+
+Коротко — найпростіші варіанти щоб зупинити вікно cmd і переглянути лог:
+
+- Додати команду pause в кінець ci.bat — стандартне «Press any key to continue . . .».
+- Запускати скрипт з відкритого cmd (або PowerShell) замість подвійного кліку — тоді вікно залишиться відкритим після завершення.
+- Запускати через cmd /k ci.bat — відкриє вікно і не закриє його після виконання.
+- Перенаправити вивід у файл: ci.bat > ci.log 2>&1 і потім відкрити ci.log.
+
+Рекомендую просту правку ci.bat — додайте дієві повідомлення та pause. Ось пропонований файл:
+
+````bat
+@echo off
+setlocal
+
+echo === CI: start ===
+
+rem Create build directory and enter it
+if not exist build (
+  mkdir build
+)
+cd build || (echo Failed to cd into build & pause & exit /b 1)
+
+rem Configure project
+echo --- cmake configure ---
+cmake .. || (echo CMake configure failed & pause & exit /b 1)
+
+rem Build project (use Release config on Windows)
+echo --- build ---
+if "%OS%"=="Windows_NT" (
+  cmake --build . --config Release || (echo Build failed & pause & exit /b 1)
+) else (
+  cmake --build . || (echo Build failed & pause & exit /b 1)
+)
+
+rem Run tests with CTest (output on failure)
+echo --- run tests (ctest) ---
+ctest --output-on-failure || (echo Tests failed & pause & exit /b 1)
+
+rem Return to repo root
+cd .. || echo Warning: could not cd ..
+
+echo === CI: done ===
+echo Log saved to %cd%\ci.log (if you redirected output)
+
+pause
+exit /b 0
+````
+
+Короткі команди для запуску (щоб вікно не закривалось):  
+- Відкрити cmd і виконати: ci.bat  
+- Або подвійний клік, але додайте pause як вище.  
+- Щоб зберегти лог: ci.bat > ci.log 2>&1
+
+Якщо хочете — можу автоматично виправити ваш ci.bat прямо в репозиторії.
+
+Denysiak-Mykola: === CI: start ===
+--- cmake configure ---
+-- Selecting Windows SDK version 10.0.22621.0 to target Windows 10.0.26100.
+CMake Warning (dev) at C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:1373 (message):
+  The DOWNLOAD_EXTRACT_TIMESTAMP option was not given and policy CMP0135 is
+  not set.  The policy's OLD behavior will be used.  When using a URL
+  download, the timestamps of extracted files should preferably be that of
+  the time of extraction, otherwise code that depends on the extracted
+  contents might not be rebuilt if the URL changes.  The OLD behavior
+  preserves the timestamps from the archive instead, but this is usually not
+  what you want.  Update your project to the NEW behavior or specify the
+  DOWNLOAD_EXTRACT_TIMESTAMP option with a value of true to avoid this
+  robustness issue.
+Call Stack (most recent call first):
+  CMakeLists.txt:64 (FetchContent_Declare)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+MSBuild version 17.13.19+0d9f5a35a for .NET Framework
+
+  1>Checking Build System
+  Performing download step (download, verify and extract) for 'googletest-populate'
+  -- File already exists but no hash specified (use URL_HASH):
+    file='D:/Git/repos/APKS_LABS/csad2526ki405denysiakmykolaandriyovich10/build/_deps/googletest-subbuild/googletest-populate-prefix/src/release-1.14.0.zip'
+  Old file will be removed and new file downloaded from URL.
+  -- Downloading...
+     dst='D:/Git/repos/APKS_LABS/csad2526ki405denysiakmykolaandriyovich10/build/_deps/googletest-subbuild/googletest-populate-prefix/src/release-1.14.0.zip'
+     timeout='none'
+     inactivity timeout='none'
+  -- Using src='https://github.com/google/googletest/archive/refs/tags/release-1.14.0.zip'
+  CMake Error at googletest-subbuild/googletest-populate-prefix/src/googletest-populate-stamp/download-googletest-populate.cmake:163 (message):
+    Each download failed!
+
+CUSTOMBUILD : error : downloading 'https://github.com/google/googletest/archive/refs/tags/release-1.14.0.zip' failed [D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\googletest-populate.vcxproj]
+            status_code: 22
+            status_string: "HTTP response code said error"
+            log:
+            --- LOG BEGIN ---
+            timeout on name lookup is not supported
+
+    Host github.com:443 was resolved.
+
+    IPv6: (none)
+
+    IPv4: 140.82.121.3
+
+      Trying 140.82.121.3:443...
+
+    schannel: disabled automatic use of client certificate
+
+    ALPN: curl offers h2,http/1.1
+
+    ALPN: server accepted h2
+
+    Connected to github.com (140.82.121.3) port 443
+
+    using HTTP/2
+
+    [HTTP/2] [1] OPENED stream for
+    https://github.com/google/googletest/archive/refs/tags/release-1.14.0.zip
+
+    [HTTP/2] [1] [:method: GET]
+
+    [HTTP/2] [1] [:scheme: https]
+
+    [HTTP/2] [1] [:authority: github.com]
+
+    [HTTP/2] [1] [:path:
+    /google/googletest/archive/refs/tags/release-1.14.0.zip]
+
+    [HTTP/2] [1] [user-agent: curl/8.12.1]
+
+    [HTTP/2] [1] [accept: */*]
+
+    GET /google/googletest/archive/refs/tags/release-1.14.0.zip HTTP/2
+
+    Host: github.com
+
+    User-Agent: curl/8.12.1
+
+    Accept: */*
+
+
+
+    Request completely sent off
+
+    schannel: remote party requests renegotiation
+
+    schannel: renegotiating SSL/TLS connection
+
+    schannel: SSL/TLS connection renegotiated
+
+    schannel: remote party requests renegotiation
+
+    schannel: renegotiating SSL/TLS connection
+
+    schannel: SSL/TLS connection renegotiated
+
+    HTTP/2 302
+
+    date: Mon, 27 Oct 2025 20:13:20 GMT
+
+    content-type: text/html; charset=utf-8
+
+    content-length: 0
+
+    vary: X-PJAX, X-PJAX-Container, Turbo-Visit, Turbo-Frame,
+    X-Requested-With,Accept-Encoding, Accept, X-Requested-With
+
+    location:
+    https://codeload.github.com/google/googletest/zip/refs/tags/release-1.14.0
+
+    cache-control: max-age=0, private
+
+    strict-transport-security: max-age=31536000; includeSubdomains; preload
+
+    x-frame-options: deny
+
+    x-content-type-options: nosniff
+
+    x-xss-protection: 0
+
+    referrer-policy: no-referrer-when-downgrade
+
+    content-security-policy: default-src 'none'; base-uri 'self'; child-src
+    github.githubassets.com github.com/assets-cdn/worker/ github.com/assets/
+    gist.github.com/assets-cdn/worker/; connect-src 'self' uploads.github.com
+    www.githubstatus.com collector.github.com raw.githubusercontent.com
+    api.github.com github-cloud.s3.amazonaws.com
+    github-production-repository-file-5c1aeb.s3.amazonaws.com
+    github-production-upload-manifest-file-7fdce7.s3.amazonaws.com
+    github-production-user-asset-6210df.s3.amazonaws.com
+    *.rel.tunnels.api.visualstudio.com wss://*.rel.tunnels.api.visualstudio.com
+    github.githubassets.com objects-origin.githubusercontent.com
+    copilot-proxy.githubusercontent.com proxy.individual.githubcopilot.com
+    proxy.business.githubcopilot.com proxy.enterprise.githubcopilot.com
+    *.actions.githubusercontent.com wss://*.actions.githubusercontent.com
+    productionresultssa0.blob.core.windows.net/
+    productionresultssa1.blob.core.windows.net/
+    productionresultssa2.blob.core.windows.net/
+    productionresultssa3.blob.core.windows.net/
+    productionresultssa4.blob.core.windows.net/
+    productionresultssa5.blob.core.windows.net/
+    productionresultssa6.blob.core.windows.net/
+    productionresultssa7.blob.core.windows.net/
+    productionresultssa8.blob.core.windows.net/
+    productionresultssa9.blob.core.windows.net/
+    productionresultssa10.blob.core.windows.net/
+    productionresultssa11.blob.core.windows.net/
+    productionresultssa12.blob.core.windows.net/
+    productionresultssa13.blob.core.windows.net/
+    productionresultssa14.blob.core.windows.net/
+    productionresultssa15.blob.core.windows.net/
+    productionresultssa16.blob.core.windows.net/
+    productionresultssa17.blob.core.windows.net/
+    productionresultssa18.blob.core.windows.net/
+    productionresultssa19.blob.core.windows.net/
+    github-production-repository-image-32fea6.s3.amazonaws.com
+    github-production-release-asset-2e65be.s3.amazonaws.com insights.github.com
+    wss://alive.github.com wss://alive-staging.github.com api.githubcopilot.com
+    api.individual.githubcopilot.com api.business.githubcopilot.com
+    api.enterprise.githubcopilot.com; font-src github.githubassets.com;
+    form-action 'self' github.com gist.github.com
+    copilot-workspace.githubnext.com objects-origin.githubusercontent.com;
+    frame-ancestors 'none'; frame-src viewscreen.githubusercontent.com
+    notebooks.githubusercontent.com; img-src 'self' data: blob:
+    github.githubassets.com media.githubusercontent.com
+    camo.githubusercontent.com identicons.github.com
+    avatars.githubusercontent.com private-avatars.githubusercontent.com
+    github-cloud.s3.amazonaws.com objects.githubusercontent.com
+    release-assets.githubusercontent.com
+    secured-user-images.githubusercontent.com/
+    user-images.githubusercontent.com/
+    private-user-images.githubusercontent.com opengraph.githubassets.com
+    marketplace-screenshots.githubusercontent.com/
+    copilotprodattachments.blob.core.windows.net/github-production-copilot-attachments/
+    github-production-user-asset-6210df.s3.amazonaws.com
+    customer-stories-feed.github.com spotlights-feed.github.com
+    objects-origin.githubusercontent.com *.githubusercontent.com; manifest-src
+    'self'; media-src github.com user-images.githubusercontent.com/
+    secured-user-images.githubusercontent.com/
+    private-user-images.githubusercontent.com
+    github-production-user-asset-6210df.s3.amazonaws.com gist.github.com
+    github.githubassets.com; script-src github.githubassets.com; style-src
+    'unsafe-inline' github.githubassets.com; upgrade-insecure-requests;
+    worker-src github.githubassets.com github.com/assets-cdn/worker/
+    github.com/assets/ gist.github.com/assets-cdn/worker/
+
+    server: github.com
+
+    x-github-request-id: F286:145C17:366348:2B13B6:68FFD260
+
+    Ignoring the response-body
+
+    setting size while ignoring
+
+
+
+    Connection #0 to host github.com left intact
+
+    Issue another request to this URL:
+    'https://codeload.github.com/google/googletest/zip/refs/tags/release-1.14.0'
+
+    timeout on name lookup is not supported
+
+    Host codeload.github.com:443 was resolved.
+
+    IPv6: (none)
+
+    IPv4: 140.82.121.10
+
+      Trying 140.82.121.10:443...
+
+    schannel: disabled automatic use of client certificate
+
+    ALPN: curl offers h2,http/1.1
+
+    ALPN: server accepted h2
+
+    Connected to codeload.github.com (140.82.121.10) port 443
+
+    using HTTP/2
+
+    [HTTP/2] [1] OPENED stream for
+    https://codeload.github.com/google/googletest/zip/refs/tags/release-1.14.0
+
+    [HTTP/2] [1] [:method: GET]
+
+    [HTTP/2] [1] [:scheme: https]
+
+    [HTTP/2] [1] [:authority: codeload.github.com]
+
+    [HTTP/2] [1] [:path: /google/googletest/zip/refs/tags/release-1.14.0]
+
+    [HTTP/2] [1] [user-agent: curl/8.12.1]
+
+    [HTTP/2] [1] [accept: */*]
+
+    GET /google/googletest/zip/refs/tags/release-1.14.0 HTTP/2
+
+    Host: codeload.github.com
+
+    User-Agent: curl/8.12.1
+
+    Accept: */*
+
+
+
+    Request completely sent off
+
+    schannel: remote party requests renegotiation
+
+    schannel: renegotiating SSL/TLS connection
+
+    schannel: SSL/TLS connection renegotiated
+
+    schannel: remote party requests renegotiation
+
+    schannel: renegotiating SSL/TLS connection
+
+    schannel: SSL/TLS connection renegotiated
+
+    HTTP/2 404
+
+    access-control-allow-origin: https://render.githubusercontent.com
+
+    content-security-policy: default-src 'none'; style-src 'unsafe-inline';
+    sandbox
+
+    cross-origin-resource-policy: cross-origin
+
+    strict-transport-security: max-age=31536000
+
+    vary: Authorization,Accept-Encoding
+
+    x-content-type-options: nosniff
+
+    x-frame-options: deny
+
+    x-xss-protection: 1; mode=block
+
+    date: Mon, 27 Oct 2025 20:13:20 GMT
+
+    content-length: 14
+
+    content-type: text/plain; charset=utf-8
+
+    x-github-request-id: F287:312D9B:D191:11E22:68FFD260
+
+CUSTOMBUILD : The requested URL returned error : 404 [D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\googletest-populate.vcxproj]
+
+
+
+    Connection #1 to host codeload.github.com left intact
+
+
+
+            --- LOG END ---
+
+
+
+
+C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppCommon.targets(254,5): error MSB8066: Custom build for 'D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-download.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-update.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-patch.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-configure.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-build.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-install.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-test.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\c056c39be8f559b434ae74d629009e7b\googletest-populate-complete.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\161162972ad15bcae259a2c917a74e5f\googletest-populate.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeLists.txt' exited with code 1. [D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\googletest-populate.vcxproj]
+
+CMake Error at C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:1918 (message):
+  Build step for googletest failed: 1
+Call Stack (most recent call first):
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:1609 (__FetchContent_populateSubbuild)
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:2145:EVAL:2 (__FetchContent_doPopulation)
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:2145 (cmake_language)
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:2384 (__FetchContent_Populate)
+  CMakeLists.txt:69 (FetchContent_MakeAvailable)
+
+
+-- Configuring incomplete, errors occurred!
+CMake configure failed
+
+GitHub Copilot: GitHub Copilot
+
+Коротко — причина й два простих шляхи виправлення.
+
+Причина
+- FetchContent намагався завантажити zip з GitHub через URL і отримав помилку 302→404 / проблеми з TLS/редиректом — конфігурація не дійшла до збірки, тому exe не зʼявився.
+
+Варіант A — надійно підвантажувати GoogleTest через git (рекомендується)
+- Заміни секцію FetchContent_Declare у CMakeLists.txt на цей варіант:
+
+````cmake
+# ...existing code...
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        release-1.14.0
+)
+# Примусово встановити нову поведінку для timestamp (опціонально)
+set(DOWNLOAD_EXTRACT_TIMESTAMP TRUE CACHE BOOL "" FORCE)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+# ...existing code...
+````
+
+Варіант B — тимчасово вимкнути збір тестів (швидко, якщо потрібен тільки exe)
+- Змініть команду cmake в ci.bat на передачу опції BUILD_TESTS=OFF, щоб пропустити FetchContent і завершити збірку:
+
+````bat
+rem filepath: d:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\ci.bat
+cd build || (echo Failed to cd into build & pause & exit /b 1)
+cmake .. -DBUILD_TESTS=OFF || (echo CMake configure failed & pause & exit /b 1)
+````
+
+Дії після правки
+1. Видали папку build (щоб очистити кеш FetchContent): rmdir /s /q build
+2. Запусти ci.bat ще раз.
+
+Додатково
+- На Windows збірка Release поміщає exe в build/Release/, перевіряй цей шлях.
+- Якщо мережа/проксі блокує GitHub, варіант B дозволить зібрати локально без тестів; варіант A працює краще при нормальному доступі до GitHub.
+
+Хочеш — внесу зміну до CMakeLists.txt або до ci.bat зараз.
+
+Denysiak-Mykola: === CI: start ===
+--- cmake configure ---
+-- Building for: Visual Studio 17 2022
+-- Selecting Windows SDK version 10.0.22621.0 to target Windows 10.0.26100.
+-- The CXX compiler identification is MSVC 19.43.34810.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.43.34808/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+MSBuild version 17.13.19+0d9f5a35a for .NET Framework
+
+  1>Checking Build System
+  1>Creating directories for 'googletest-populate'
+  Performing download step (git clone) for 'googletest-populate'
+  Cloning into 'googletest-src'...
+  fatal: invalid reference: release-1.14.0
+  CMake Error at googletest-subbuild/googletest-populate-prefix/tmp/googletest-populate-gitclone.cmake:61 (message):
+    Failed to checkout tag: 'release-1.14.0'
+
+
+C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppCommon.targets(254,5): error MSB8066: Custom build for 'D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-download.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-update.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-patch.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-configure.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-build.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-install.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\cbb98fcec316b61ad6093e1ec8520f45\googletest-populate-test.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\c056c39be8f559b434ae74d629009e7b\googletest-populate-complete.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeFiles\161162972ad15bcae259a2c917a74e5f\googletest-populate.rule;D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\CMakeLists.txt' exited with code 1. [D:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\build\_deps\googletest-subbuild\googletest-populate.vcxproj]
+
+CMake Error at C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:1918 (message):
+  Build step for googletest failed: 1
+Call Stack (most recent call first):
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:1609 (__FetchContent_populateSubbuild)
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:2145:EVAL:2 (__FetchContent_doPopulation)
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:2145 (cmake_language)
+  C:/Program Files/CMake/share/cmake-4.0/Modules/FetchContent.cmake:2384 (__FetchContent_Populate)
+  CMakeLists.txt:72 (FetchContent_MakeAvailable)
+
+
+-- Configuring incomplete, errors occurred!
+CMake configure failed
+Press any key to continue . . .
+
+GitHub Copilot: GitHub Copilot
+
+Коротко — проблема в тому, що FetchContent не зміг checkout вказаний тег. Найпростіше і надійне виправлення — використовувати стабільну гілку (наприклад main) або інший існуючий тег, або тимчасово вимикати тести при конфігурації. Після зміни видаліть папку build і запустіть ci.bat заново.
+
+Пропоную змінити секцію FetchContent в CMakeLists.txt — замінити GIT_TAG на main і додати GIT_SHALLOW для прискорення:
+
+````cmake
+# ...existing code...
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        main
+    GIT_SHALLOW    TRUE
+)
+set(DOWNLOAD_EXTRACT_TIMESTAMP TRUE CACHE BOOL "" FORCE)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+# ...existing code...
+````
+
+Кроки після правки
+- Видаліть кеш збірки: в PowerShell/CMD у корені репо виконати:
+  - rmdir /s /q build
+- Запустіть ci.bat ще раз.
+
+Альтернативи
+- Якщо ви хочете прив’язатися саме до релізного тегу — знайдіть правильну назву тега у репозиторії googletest (git ls-remote --tags https://github.com/google/googletest.git) і підставте її в GIT_TAG.
+- Тимчасово пропустити тести: у ci.bat змініть виклик cmake .. на cmake .. -DBUILD_TESTS=OFF — тоді конфігурація не буде завантажувати googletest.
+
+Якщо хочете, можу автоматично внести зміну в CMakeLists.txt.
+
+Denysiak-Mykola: Створи також ci.sh файл. Згідно тих самих вимог, щой до ci.bat
+
+GitHub Copilot: GitHub Copilot
+
+Додано ci.sh:
+
+````bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=== CI: start ==="
+
+# create build dir and enter
+mkdir -p build
+cd build
+
+echo "--- cmake configure ---"
+cmake .. || { echo "CMake configure failed"; exit 1; }
+
+# determine parallelism
+if command -v nproc >/dev/null 2>&1; then
+  PARALLEL=$(nproc)
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+else
+  PARALLEL=2
+fi
+
+echo "--- build ---"
+cmake --build . --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
+
+echo "--- run tests (ctest) ---"
+ctest --output-on-failure || { echo "Tests failed"; exit 1; }
+
+# return to repo root
+cd ..
+
+# ensure a simple POSIX build script (build.sh) exists — same steps for manual runs
+if [ ! -f build.sh ]; then
+  cat > build.sh <<'BSC'
+#!/usr/bin/env bash
+set -e
+mkdir -p build
+cd build
+cmake ..
+cmake --build . --parallel "$(nproc 2>/dev/null || echo 2)"
+ctest --output-on-failure
+BSC
+  echo "Created build.sh"
+fi
+
+# make build.sh executable and record in git if in repo
+chmod +x build.sh || true
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git add build.sh >/dev/null 2>&1 || true
+  git update-index --add --chmod=+x build.sh >/dev/null 2>&1 || true
+  git commit -m "Add build.sh and make it executable" >/dev/null 2>&1 || echo "No commit (maybe no changes or git not configured)"
+fi
+
+echo "=== CI: done ==="
+exit 0
+````
+
+Denysiak-Mykola: До ci.bat і ci.sh. Виконай цей пункт
+Забезпечте права на виконання (chmod +x build.sh) та зафіксуйте 
+зміни. 
+
+GitHub Copilot: Ось правки, які додають встановлення прав виконання для build.sh і фіксацію змін у git (для Windows та POSIX). Збережи файли і закоміть.
+
+````bat
+@echo off
+setlocal
+
+echo === CI: start ===
+
+rem Create build directory and enter it
+if not exist build (
+  mkdir build
+)
+cd build || (echo Failed to cd into build & pause & exit /b 1)
+
+rem Configure project
+echo --- cmake configure ---
+cmake .. || (echo CMake configure failed & pause & exit /b 1)
+
+rem Build project (use Release config on Windows)
+echo --- build ---
+if "%OS%"=="Windows_NT" (
+  cmake --build . --config Release || (echo Build failed & pause & exit /b 1)
+) else (
+  cmake --build . || (echo Build failed & pause & exit /b 1)
+)
+
+rem Run tests with CTest (output on failure)
+echo --- run tests (ctest) ---
+ctest --output-on-failure || (echo Tests failed & pause & exit /b 1)
+
+rem Return to repo root
+cd .. || echo Warning: could not cd ..
+
+rem Ensure build.sh exists and is executable on Unix-like systems
+if not exist build.sh (
+  echo #!/usr/bin/env bash>build.sh
+  echo set -euo pipefail>>build.sh
+  echo mkdir -p build>>build.sh
+  echo cd build>>build.sh
+  echo cmake ..>>build.sh
+  echo cmake --build . --parallel 2>>build.sh
+  echo ctest --output-on-failure>>build.sh
+)
+
+rem Try to set executable bit for build.sh (Git and fallback)
+git update-index --add --chmod=+x build.sh 2>nul || (
+  bash -c "chmod +x build.sh" 2>nul || echo "Could not set executable bit automatically; run 'chmod +x build.sh' on Unix-like systems"
+)
+
+rem Stage and commit build.sh if inside a git repo
+git rev-parse --is-inside-work-tree >nul 2>&1
+if %ERRORLEVEL%==0 (
+  git add build.sh >nul 2>&1
+  git update-index --add --chmod=+x build.sh >nul 2>&1
+  git commit -m "Add build.sh and set executable bit" >nul 2>&1 || echo "No commit performed (no changes to commit or git not configured)"
+) else (
+  echo "Not a git repository; skipping commit."
+)
+
+echo === CI: done ===
+pause
+endlocal
+exit /b 0
+````
+
+````bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=== CI: start ==="
+
+# create build dir and enter
+mkdir -p build
+cd build
+
+echo "--- cmake configure ---"
+cmake .. || { echo "CMake configure failed"; exit 1; }
+
+# determine parallelism
+if command -v nproc >/dev/null 2>&1; then
+  PARALLEL=$(nproc)
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+else
+  PARALLEL=2
+fi
+
+echo "--- build ---"
+cmake --build . --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
+
+echo "--- run tests (ctest) ---"
+ctest --output-on-failure || { echo "Tests failed"; exit 1; }
+
+# return to repo root
+cd ..
+
+# ensure a simple POSIX build script exists
+if [ ! -f build.sh ]; then
+  cat > build.sh <<'BSC'
+#!/usr/bin/env bash
+set -e
+mkdir -p build
+cd build
+cmake ..
+cmake --build . --parallel "$(nproc 2>/dev/null || echo 2)"
+ctest --output-on-failure
+BSC
+  echo "Created build.sh"
+fi
+
+# make build.sh executable and record in git if in repo
+chmod +x build.sh || true
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git add build.sh >/dev/null 2>&1 || true
+  git update-index --add --chmod=+x build.sh >/dev/null 2>&1 || true
+  git commit -m "Add build.sh and make it executable" >/dev/null 2>&1 || echo "No commit (maybe no changes or git not configured)"
+fi
+
+echo "=== CI: done ==="
+exit 0
+````
+
+Denysiak-Mykola:  git commit -m "Add build.sh and set executable bit" >nul 2>&1 || echo "No commit performed (no changes to commit or git not configured)"
+ Тут ти створив коміт, але його не потрібно. Я пару разів запустив ci.bat. Як тепер видалити коміт
+
+GitHub Copilot: GitHub Copilot
+
+Коротко — як видалити небажані коміти, залежно від того, чи ти вже їх запушив.
+
+1) Подивитись історію та чи коміти запушені:
+```bash
+git status
+git log --oneline --decorate -n 10
+```
+
+2) Якщо коміти локальні і ще не пушені — скинути локально (знищить коміт(и)):
+- Видалити останній коміт, зберігши зміни в робочій теці:
+```bash
+git reset --soft HEAD~1
+```
+- Видалити останній коміт і зміни (виcвітить робочу теку як до коміту):
+```bash
+git reset --hard HEAD~1
+```
+- Видалити N останніх комітів:
+```bash
+git reset --hard HEAD~N
+```
+
+3) Якщо коміти вже запушені в remote:
+- Найбезпечніший (не переписує історію): створити revert (створить новий коміт, що відміняє зміни):
+```bash
+git revert <commit-hash>
+# або кілька комітів по одному: 
+git revert <hash1> <hash2> ...
+```
+- Якщо можеш переписати remote історію (уважно — це вплине на інших):
+```bash
+git reset --hard HEAD~1
+git push --force origin <branch>
+```
+
+4) Поради перед дією
+- Переконайся, який саме коміт(и) потрібно видалити: скопіюй потрібний хеш з git log.
+- Якщо не впевнений — зроби бекап гілки: 
+```bash
+git branch backup-before-reset
+```
+- Після reset можеш видалити файл build.sh якщо він більше не потрібен:
+```bash
+git rm --cached build.sh  # якщо хочеш залишити файл у FS, але прибрати з індексу
+del build.sh              # якщо хочеш повністю видалити (Windows)
+git commit -m "Remove build.sh"
+```
+
+Якщо скажеш, скільки комітів створив ci.bat і чи ти їх пушив, напишу точні команди.
+
+Denysiak-Mykola: Забери звідси створення комітів
+
+GitHub Copilot: GitHub Copilot
+
+Ось виправлені скрипти без створення комітів.
+
+````bat
+@echo off
+setlocal
+
+echo === CI: start ===
+
+rem Create build directory and enter it
+if not exist build (
+  mkdir build
+)
+cd build || (echo Failed to cd into build & pause & exit /b 1)
+
+rem Configure project
+echo --- cmake configure ---
+cmake .. || (echo CMake configure failed & pause & exit /b 1)
+
+rem Build project (use Release config on Windows)
+echo --- build ---
+if "%OS%"=="Windows_NT" (
+  cmake --build . --config Release || (echo Build failed & pause & exit /b 1)
+) else (
+  cmake --build . || (echo Build failed & pause & exit /b 1)
+)
+
+rem Run tests with CTest (output on failure)
+echo --- run tests (ctest) ---
+ctest --output-on-failure || (echo Tests failed & pause & exit /b 1)
+
+rem Return to repo root
+cd .. || echo Warning: could not cd ..
+
+rem Ensure build.sh exists and is executable on Unix-like systems
+if not exist build.sh (
+  echo #!/usr/bin/env bash>build.sh
+  echo set -euo pipefail>>build.sh
+  echo mkdir -p build>>build.sh
+  echo cd build>>build.sh
+  echo cmake ..>>build.sh
+  echo cmake --build . --parallel 2>>build.sh
+  echo ctest --output-on-failure>>build.sh
+)
+
+rem Try to set executable bit for build.sh (Git and fallback)
+git update-index --add --chmod=+x build.sh 2>nul || (
+  bash -c "chmod +x build.sh" 2>nul || echo "Could not set executable bit automatically; run 'chmod +x build.sh' on Unix-like systems"
+)
+
+rem Stage build.sh in index if inside a git repo (no commit)
+git rev-parse --is-inside-work-tree >nul 2>&1
+if %ERRORLEVEL%==0 (
+  git add build.sh >nul 2>&1
+  git update-index --add --chmod=+x build.sh >nul 2>&1
+) else (
+  echo "Not a git repository; skipping git index update."
+)
+
+echo === CI: done ===
+pause
+endlocal
+exit /b 0
+````
+
+````bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=== CI: start ==="
+
+# create build dir and enter
+mkdir -p build
+cd build
+
+echo "--- cmake configure ---"
+cmake .. || { echo "CMake configure failed"; exit 1; }
+
+# determine parallelism
+if command -v nproc >/dev/null 2>&1; then
+  PARALLEL=$(nproc)
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+else
+  PARALLEL=2
+fi
+
+echo "--- build ---"
+cmake --build . --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
+
+echo "--- run tests (ctest) ---"
+ctest --output-on-failure || { echo "Tests failed"; exit 1; }
+
+# return to repo root
+cd ..
+
+# ensure a simple POSIX build script exists
+if [ ! -f build.sh ]; then
+  cat > build.sh <<'BSC'
+#!/usr/bin/env bash
+set -e
+mkdir -p build
+cd build
+cmake ..
+cmake --build . --parallel "$(nproc 2>/dev/null || echo 2)"
+ctest --output-on-failure
+BSC
+  echo "Created build.sh"
+fi
+
+# make build.sh executable (no commits)
+chmod +x build.sh || true
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git add build.sh >/dev/null 2>&1 || true
+  git update-index --add --chmod=+x build.sh >/dev/null 2>&1 || true
+else
+  echo "Not a git repository; skipping git index update."
+fi
+
+echo "=== CI: done ==="
+exit 0
+````

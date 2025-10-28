@@ -50,6 +50,12 @@ if(MAIN_FILES AND TARGET ${PROJECT_NAME}_lib)
     target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include")
 endif()
 
+if(EXISTS "${CMAKE_SOURCE_DIR}/src/main.cpp" AND TARGET ${PROJECT_NAME}_lib)
+    add_executable(hello "${CMAKE_SOURCE_DIR}/src/main.cpp")
+    target_link_libraries(hello PRIVATE ${PROJECT_NAME}_lib)
+    target_include_directories(hello PRIVATE "${CMAKE_SOURCE_DIR}/include")
+endif()
+
 # ----- testing support (GoogleTest) -----
 option(BUILD_TESTS "Build tests" ON)
 if(BUILD_TESTS)
@@ -57,8 +63,12 @@ if(BUILD_TESTS)
     include(FetchContent)
     FetchContent_Declare(
         googletest
-        URL https://github.com/google/googletest/archive/refs/tags/release-1.14.0.zip
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        main
+        GIT_SHALLOW    TRUE
     )
+    # Примусово встановити нову поведінку для timestamp (опціонально)
+    set(DOWNLOAD_EXTRACT_TIMESTAMP TRUE CACHE BOOL "" FORCE)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
