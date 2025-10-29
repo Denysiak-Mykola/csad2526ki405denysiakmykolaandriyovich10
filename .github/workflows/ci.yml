@@ -19,43 +19,41 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      # 1️⃣ Checkout
+      # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Install CMake (Linux)
-      - name: Install CMake (Linux)
+      # 2. Install dependencies
+      - name: Install dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential git
-
-      # 2️⃣ Install CMake (macOS)
-      - name: Install CMake (macOS)
+      - name: Install dependencies
         if: runner.os == 'macOS'
         run: |
           brew update
           brew install cmake git
-
-      # 2️⃣ Ensure CMake is available (Windows)
-      - name: Ensure CMake is available (Windows)
+      - name: Ensure CMake is available
         if: runner.os == 'Windows'
-        run: |
-          cmake --version
+        run: cmake --version
         shell: pwsh
 
-      # 3️⃣ Build project
-      - name: Build project
+      # 3. Build project
+      - name: Build project (Linux/macOS)
+        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
-          if [ "$RUNNER_OS" = "Linux" ] || [ "$RUNNER_OS" = "macOS" ]; then
-            chmod +x ./ci.sh
-            ./ci.sh
-          else
-            ./ci.bat
-          fi
+          chmod +x ./ci.sh
+          ./ci.sh
         shell: bash
 
-      # 4️⃣ Upload build artifacts
+      - name: Build project (Windows)
+        if: runner.os == 'Windows'
+        run: ./ci.bat
+        shell: pwsh
+
+
+      # 4. Upload build artifacts
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -69,31 +67,48 @@ jobs:
             *.zip
           retention-days: 7
 
-      # 5️⃣ Download artifacts (optional test step)
+      # 5. Download artifacts
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-${{ runner.os }}
           path: ./downloaded_artifacts
 
-      # 6️⃣ Run built executable (optional sanity check)
-      - name: Run built executable
+      # 6. Run built executable (Windows)
+      - name: Run built executable (Windows)
         if: runner.os == 'Windows'
         run: |
-          echo "Running built Windows executable..."
-          Get-ChildItem -Path ./downloaded_artifacts -Recurse
-          ./downloaded_artifacts/main.exe || echo "No executable found"
+          Write-Host "Searching for main executable..."
+          $exe = Get-ChildItem -Recurse -Filter "*.exe" -Path "./downloaded_artifacts", "./build", "./bin" |
+                 Where-Object { $_.FullName -notmatch "CMakeFiles" } |
+                 Select-Object -First 1
+
+          if ($exe) {
+            Write-Host "Found executable: $($exe.FullName)"
+            & "$($exe.FullName)"
+          } else {
+            Write-Host "No executable (.exe) found!"
+            exit 1
+          }
         shell: pwsh
 
+      # 6. Run built executable (Linux/macOS)
       - name: Run built executable (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          echo "Running built binary..."
-          chmod +x ./downloaded_artifacts/main* || true
-          ./downloaded_artifacts/main* || echo "No executable found"
+          echo "Searching for main executable..."
+          BIN=$(find ./downloaded_artifacts ./build ./bin -type f -perm -111 ! -path "*CMakeFiles*" -print -quit)
+          if [ -n "$BIN" ]; then
+            echo "Found executable: $BIN"
+            chmod +x "$BIN"
+            "$BIN"
+          else
+            echo "No executable found!"
+            exit 1
+          fi
         shell: bash
 
-      # 7️⃣ Deploy artifacts (example placeholder)
+      # 7. Deploy artifacts (placeholder)
       - name: Deploy artifacts
         run: |
           echo "Deploying build artifacts..."
