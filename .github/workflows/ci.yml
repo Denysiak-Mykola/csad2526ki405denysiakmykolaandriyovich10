@@ -37,14 +37,14 @@ jobs:
           brew update
           brew install cmake git
 
-      # 2️⃣ Install CMake (Windows)
+      # 2️⃣ Ensure CMake is available (Windows)
       - name: Ensure CMake is available (Windows)
         if: runner.os == 'Windows'
         run: |
           cmake --version
         shell: pwsh
 
-      # 3️⃣ Build using platform-specific script
+      # 3️⃣ Build project
       - name: Build project
         run: |
           if [ "$RUNNER_OS" = "Linux" ] || [ "$RUNNER_OS" = "macOS" ]; then
@@ -55,7 +55,45 @@ jobs:
           fi
         shell: bash
 
-      # 4️⃣ Deploy artifacts (example placeholder)
+      # 4️⃣ Upload build artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: |
+            build/**
+            bin/**
+            *.exe
+            *.out
+            *.app
+            *.zip
+          retention-days: 7
+
+      # 5️⃣ Download artifacts (optional test step)
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: ./downloaded_artifacts
+
+      # 6️⃣ Run built executable (optional sanity check)
+      - name: Run built executable
+        if: runner.os == 'Windows'
+        run: |
+          echo "Running built Windows executable..."
+          Get-ChildItem -Path ./downloaded_artifacts -Recurse
+          ./downloaded_artifacts/main.exe || echo "No executable found"
+        shell: pwsh
+
+      - name: Run built executable (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Running built binary..."
+          chmod +x ./downloaded_artifacts/main* || true
+          ./downloaded_artifacts/main* || echo "No executable found"
+        shell: bash
+
+      # 7️⃣ Deploy artifacts (example placeholder)
       - name: Deploy artifacts
         run: |
           echo "Deploying build artifacts..."
