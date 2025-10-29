@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
+IFS=$'\n\t'
 
 echo "=== CI: start ==="
+
+# If a build.sh exists in repo root, try to make it executable (safe: only local)
+if [ -f "../build.sh" ]; then
+  chmod +x ../build.sh || true
+  # If running locally (not in GitHub Actions) try to update git index to record exec bit
+  if [ -z "${GITHUB_ACTIONS:-}" ] && command -v git >/dev/null 2>&1; then
+    git update-index --add --chmod=+x ../build.sh || true
+  fi
+fi
 
 # create build dir and enter
 mkdir -p build
@@ -23,40 +33,11 @@ echo "--- build ---"
 cmake --build . --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
 
 echo "--- run tests (ctest) ---"
-ctest --output-on-failure || { echo "Tests failed"; exit 1; }
-
-# return to repo root
-cd ..
-
-echo "=== CI: done ==="
-exit 0
-```// filepath: d:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\ci.sh
-#!/usr/bin/env bash
-set -euo pipefail
-
-echo "=== CI: start ==="
-
-# create build dir and enter
-mkdir -p build
-cd build
-
-echo "--- cmake configure ---"
-cmake .. || { echo "CMake configure failed"; exit 1; }
-
-# determine parallelism
-if command -v nproc >/dev/null 2>&1; then
-  PARALLEL=$(nproc)
-elif [[ "$(uname -s)" == "Darwin" ]]; then
-  PARALLEL=$(sysctl -n hw.ncpu)
+if command -v ctest >/dev/null 2>&1; then
+  ctest --output-on-failure || { echo "Tests failed"; exit 1; }
 else
-  PARALLEL=2
+  echo "ctest not found; skipping tests"
 fi
-
-echo "--- build ---"
-cmake --build . --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
-
-echo "--- run tests (ctest) ---"
-ctest --output-on-failure || { echo "Tests failed"; exit 1; }
 
 # return to repo root
 cd ..
