@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    name: Cross-platform build and deploy
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # 1. Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install dependencies
+      - name: Install dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential git
+      - name: Install dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake git
+      - name: Ensure CMake is available
+        if: runner.os == 'Windows'
+        run: cmake --version
+        shell: pwsh
+
+      # 3. Build project
+      - name: Build project (Linux/macOS)
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          chmod +x ./ci.sh
+          ./ci.sh
+        shell: bash
+
+      - name: Build project (Windows)
+        if: runner.os == 'Windows'
+        run: ./ci.bat
+        shell: pwsh
+
+
+      # 4. Upload build artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: |
+            build/**
+            bin/**
+            *.exe
+            *.out
+            *.app
+            *.zip
+          retention-days: 7
+
+      # 5. Download artifacts
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: ./downloaded_artifacts
+
+      # 6. Run built executable (Windows)
+      - name: Run built executable (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "Searching for main executable..."
+          $exe = Get-ChildItem -Recurse -Filter "*.exe" -Path "./downloaded_artifacts", "./build", "./bin" |
+                 Where-Object { $_.FullName -notmatch "CMakeFiles" } |
+                 Select-Object -First 1
+
+          if ($exe) {
+            Write-Host "Found executable: $($exe.FullName)"
+            & "$($exe.FullName)"
+          } else {
+            Write-Host "No executable (.exe) found!"
+            exit 1
+          }
+        shell: pwsh
+
+      # 6. Run built executable (Linux/macOS)
+      - name: Run built executable (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Searching for main executable..."
+          BIN=$(find ./downloaded_artifacts ./build ./bin -type f -perm -111 ! -path "*CMakeFiles*" -print -quit)
+          if [ -n "$BIN" ]; then
+            echo "Found executable: $BIN"
+            chmod +x "$BIN"
+            "$BIN"
+          else
+            echo "No executable found!"
+            exit 1
+          fi
+        shell: bash
+
+      # 7. Deploy artifacts (placeholder)
+      - name: Deploy artifacts
+        run: |
+          echo "Deploying build artifacts..."
+          echo "Build on $RUNNER_OS completed successfully."
+        shell: bash
