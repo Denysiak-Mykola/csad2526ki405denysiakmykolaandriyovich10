@@ -1,0 +1,1220 @@
+Denysiak-Mykola: У файлі ci.yml використовуйте Copilot для 
+генерації робочого процесу (workflow) з наступними вимогами: 
+○ Trigger: Запускати акцію при push або pull request у гілку, що містить в 
+назві  develop чи master . 
+○ Job: Створити одну Job (наприклад, cross_build). 
+○ Strategy: Використати матрицю (strategy: matrix) для запуску білду 
+на трьох ОС: 
+■ runs-on: ubuntu-latest (Linux) 
+■ runs-on: windows-latest (Windows) 
+■ runs-on: macos-latest (macOS) 
+○ Steps: Кожен білд повинен включати кроки: 
+■ Checkout коду (actions/checkout@v4). 
+■ Встановлення CMake (якщо потрібно). 
+■ Запуск команд конфігурації та білдування (запуск скрипту з Етапу 
+3). 
+■ Deploy.
+
+GitHub Copilot: Ось готовий GitHub Actions workflow для файлу ci.yml — підходить під ваші вимоги (trigger за гілками з develop/master, матриця трьох ОС, checkout, встановлення CMake, конфігурація/білд і деплой через upload-artifact).
+
+````yaml
+// ...existing code...
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    name: Cross build on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake on Linux / macOS
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew update
+            brew install cmake
+          fi
+        shell: bash
+
+      - name: Install CMake on Windows
+        if: runner.os == 'Windows'
+        run: choco install -y cmake --installargs '"ADD_CMAKE_TO_PATH=System"'
+        shell: powershell
+
+      - name: Configure with CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+
+      - name: Build
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmake --build build --config Release -- /m
+          else
+            cmake --build build --config Release -- -j$(nproc)
+          fi
+        shell: bash
+
+      - name: Upload build artifacts (Deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build/**
+// ...existing code...
+````
+
+Denysiak-Mykola: cmake.install v4.1.2 [Approved]
+cmake.install package files install completed. Performing other installation steps.
+Installing 64-bit cmake.install...
+Error: The operation was canceled.
+
+GitHub Copilot: GitHub Copilot
+
+Пропоную замінити кроки інсталяції CMake (choco) на надійніший action і зробити кроки конфігурації/білду умовними по ОС, щоб уникнути помилки "The operation was canceled." при choco. Нижче — оновлений ci.yml (замінено інсталяцію CMake та приведено кроки під Windows/Linux/macOS).
+
+````yaml
+// ...existing code...
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    name: Cross build on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup CMake (cross-platform)
+        uses: lukka/get-cmake@v4
+        with:
+          version: 'latest'
+
+      - name: Configure with CMake (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+
+      - name: Configure with CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: pwsh
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake --build build --config Release -- -j$(nproc)
+        shell: bash
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release -- /m
+        shell: pwsh
+
+      - name: Upload build artifacts (Deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build/**
+// ...existing code...
+````
+
+Коротко: використання lukka/get-cmake уникне проблем з choco на runner'ах. Якщо бажаєте залишити choco — можна додати прапори --no-progress -y і запуск через pwsh, але рекомендовано action вище.
+
+Denysiak-Mykola: Run if [ "$RUNNER_OS" = "Windows" ]; then
+-- GLOB mismatch!
+-- Added unit_tests target (tests/unit_tests.cpp) and linked GoogleTest
+-- Project: csad2526ki405denysiakmykolaandriyovich10 0.1.0
+-- C++ Standard: 17
+-- Sources found: /home/runner/work/csad2526ki405denysiakmykolaandriyovich10/csad2526ki405denysiakmykolaandriyovich10/build/CMakeFiles/3.31.6/CompilerIdC/CMakeCCompilerId.c;/home/runner/work/csad2526ki405denysiakmykolaandriyovich10/csad2526ki405denysiakmykolaandriyovich10/build/CMakeFiles/3.31.6/CompilerIdCXX/CMakeCXXCompilerId.cpp;/home/runner/work/csad2526ki405denysiakmykolaandriyovich10/csad2526ki405denysiakmykolaandriyovich10/main.cpp;/home/runner/work/csad2526ki405denysiakmykolaandriyovich10/csad2526ki405denysiakmykolaandriyovich10/math_operations.cpp
+-- Configuring done (0.5s)
+CMake Error: Error required internal CMake variable not set, cmake may not be built correctly.
+Missing variable is:
+CMAKE_C_COMPILE_OBJECT
+CMake Generate step failed.  Build files cannot be regenerated correctly.
+-- Generating done (0.0s)
+gmake: *** [Makefile:409: cmake_check_build_system] Error 1
+Error: Process completed with exit code 2.
+
+GitHub Copilot: GitHub Copilot
+
+Додав кроки встановлення інструментів збірки для Linux/macOS — це виправляє помилку відсутнього C компілятора (CMAKE_C_COMPILE_OBJECT). Замінив/додав блок кроків після Checkout.
+
+````yaml
+// ...existing code...
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config
+        shell: bash
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # xcode-select --install returns non-zero if already installed; ignore errors
+          sudo xcode-select --install || true
+          brew update || true
+          brew install pkg-config || true
+        shell: bash
+
+      - name: Setup CMake (cross-platform)
+        uses: lukka/get-cmake@v4
+        with:
+          version: 'latest'
+// ...existing code...
+````
+
+Зробіть коміт і запустіть workflow знову.
+
+Denysiak-Mykola: Чи часом не може бути помила в  ci.bat і ci.sh
+
+GitHub Copilot: GitHub Copilot
+
+Коротко — так, є помилки/небажані конструкції у ci.bat, і варто додати/поправити ci.sh для Unix-раннерів.
+
+Проблеми в ci.bat
+- Виклики pause у гілках помилок (і наприкінці) блокуватимуть CI (чекають натискання клавіші).  
+- Краще уникати переходу cd + pause; використовувати конфігурацію виводу в окрему папку (cmake -S . -B build) або pushd/popd.  
+- Краще виходити з ненульовим кодом без pause при помилці.
+
+Пропоную виправлений ci.bat і приклад ci.sh.
+
+````batch
+@echo off
+setlocal
+
+echo === CI: start ===
+
+rem Create build directory
+if not exist build (
+  mkdir build
+)
+
+rem Configure project
+echo --- cmake configure ---
+cmake -S . -B build || (echo CMake configure failed & exit /b 1)
+
+rem Build project (use Release config on Windows)
+echo --- build ---
+cmake --build build --config Release || (echo Build failed & exit /b 1)
+
+rem Run tests with CTest (output on failure)
+echo --- run tests (ctest) ---
+ctest --test-dir build --output-on-failure || (echo Tests failed & exit /b 1)
+
+echo === CI: done ===
+endlocal
+exit /b 0
+````
+
+І приклад unix-совісного скрипта ci.sh:
+
+````bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=== CI: start ==="
+
+mkdir -p build
+
+echo "--- cmake configure ---"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+echo "--- build ---"
+cmake --build build -- -j$(nproc)
+
+echo "--- run tests (ctest) ---"
+ctest --test-dir build --output-on-failure
+
+echo "=== CI: done ==="
+````
+
+Заміни у CI: прибрати pause, використовувати cmake -S . -B build і ctest з явною директорією тестів. Якщо пришлете поточний ci.sh — перевірю його конкретно.
+
+Denysiak-Mykola: Перероби і ci.sh
+
+GitHub Copilot: Оновлений ci.sh — більш надійний та без cd у build директорію:
+
+````bash
+// ...existing code...
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+echo "=== CI: start ==="
+
+# require cmake
+if ! command -v cmake >/dev/null 2>&1; then
+  echo "CMake not found in PATH"
+  exit 1
+fi
+
+# create build dir (out-of-source)
+mkdir -p build
+
+echo "--- cmake configure ---"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release || { echo "CMake configure failed"; exit 1; }
+
+# determine parallelism
+if command -v nproc >/dev/null 2>&1; then
+  PARALLEL=$(nproc)
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+elif command -v getconf >/dev/null 2>&1; then
+  PARALLEL=$(getconf _NPROCESSORS_ONLN || echo 2)
+else
+  PARALLEL=2
+fi
+
+echo "--- build ---"
+cmake --build build --config Release --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
+
+echo "--- run tests (ctest) ---"
+if command -v ctest >/dev/null 2>&1; then
+  ctest --test-dir build --output-on-failure || { echo "Tests failed"; exit 1; }
+else
+  echo "ctest not found; skipping tests"
+fi
+
+echo "=== CI: done ==="
+exit 0
+// ...existing code...
+```// filepath: d:\Git\repos\APKS_LABS\csad2526ki405denysiakmykolaandriyovich10\ci.sh
+// ...existing code...
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+echo "=== CI: start ==="
+
+# require cmake
+if ! command -v cmake >/dev/null 2>&1; then
+  echo "CMake not found in PATH"
+  exit 1
+fi
+
+# create build dir (out-of-source)
+mkdir -p build
+
+echo "--- cmake configure ---"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release || { echo "CMake configure failed"; exit 1; }
+
+# determine parallelism
+if command -v nproc >/dev/null 2>&1; then
+  PARALLEL=$(nproc)
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+elif command -v getconf >/dev/null 2>&1; then
+  PARALLEL=$(getconf _NPROCESSORS_ONLN || echo 2)
+else
+  PARALLEL=2
+fi
+
+echo "--- build ---"
+cmake --build build --config Release --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
+
+echo "--- run tests (ctest) ---"
+if command -v ctest >/dev/null 2>&1; then
+  ctest --test-dir build --output-on-failure || { echo "Tests failed"; exit 1; }
+else
+  echo "ctest not found; skipping tests"
+fi
+
+echo "=== CI: done ==="
+exit 0
+// ...existing code...
+
+
+Denysiak-Mykola: Реалізуй ці файли згідно цих вимог
+○ Створення каталогу білдування (mkdir build). 
+○ Перехід у каталог (cd build). 
+○ Конфігурування проекту за допомогою CMake (cmake ..). 
+○ Білдування проєкту (cmake --build .). 
+○ Забезпечте права на виконання (chmod +x build.sh) та зафіксуйте 
+зміни. 
+
+GitHub Copilot: GitHub Copilot
+
+Оновив скрипти відповідно до вимог — створення каталогу, перехід у нього, cmake .. та cmake --build ..
+
+````bash
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+echo "=== CI: start ==="
+
+# create build dir and enter
+mkdir -p build
+cd build
+
+echo "--- cmake configure ---"
+cmake .. || { echo "CMake configure failed"; exit 1; }
+
+# determine parallelism
+if command -v nproc >/dev/null 2>&1; then
+  PARALLEL=$(nproc)
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+else
+  PARALLEL=2
+fi
+
+echo "--- build ---"
+cmake --build . --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
+
+echo "--- run tests (ctest) ---"
+if command -v ctest >/dev/null 2>&1; then
+  ctest --output-on-failure || { echo "Tests failed"; exit 1; }
+else
+  echo "ctest not found; skipping tests"
+fi
+
+# return to repo root
+cd ..
+
+echo "=== CI: done ==="
+exit 0
+````
+
+````batch
+@echo off
+setlocal
+
+echo === CI: start ===
+
+rem Create build directory if missing
+if not exist build (
+  mkdir build
+)
+
+rem Enter build directory
+pushd build
+
+rem Configure project
+echo --- cmake configure ---
+cmake .. || (echo CMake configure failed & popd & exit /b 1)
+
+rem Build project (use Release config on Windows)
+echo --- build ---
+cmake --build . --config Release || (echo Build failed & popd & exit /b 1)
+
+rem Run tests with CTest (output on failure)
+echo --- run tests (ctest) ---
+ctest --output-on-failure || (echo Tests failed & popd & exit /b 1)
+
+rem Return to repo root
+popd
+
+echo === CI: done ===
+endlocal
+exit /b 0
+````
+
+Команди для встановлення дозволів і фіксації змін (виконайте в корені репозиторію):
+
+- Bash / Git Bash / WSL:
+````bash
+chmod +x ci.sh
+git add ci.sh ci.bat
+git commit -m "ci: normalize CI scripts (mkdir, cd build, cmake .., cmake --build .) and make ci.sh executable"
+git push
+````
+
+- Windows PowerShell / cmd (якщо потрібна інструкція для executable bit у git):
+````bash
+git update-index --add --chmod=+x ci.sh
+git add ci.sh ci.bat
+git commit -m "ci: normalize CI scripts (mkdir, cd build, cmake .., cmake --build .) and make ci.sh executable"
+git push
+````
+
+Denysiak-Mykola: Current runner version: '2.328.0'
+Runner Image Provisioner
+Operating System
+Runner Image
+GITHUB_TOKEN Permissions
+Secret source: Actions
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Error: Unable to resolve action `lukka/get-cmake@v4`, unable to find version `v4`
+
+GitHub Copilot: Оновив крок інсталяції CMake у workflow — замінив невідому версію lukka/get-cmake@v4 на lukka/get-cmake@v3 (існуюча). Збережіть і запустіть workflow знову.
+
+````yaml
+// ...existing code...
+      - name: Setup CMake (cross-platform)
+-        uses: lukka/get-cmake@v4
++        uses: lukka/get-cmake@v3
+        with:
+          version: 'latest'
+// ...existing code...
+````
+
+Якщо помилка повториться, замініть цей крок на встановлення через пакетний менеджер за ОС або використайте іншу дію (наприклад, lukka/get-cmake@v2 або офіційні рішення), наприклад:
+
+- Linux: sudo apt-get install -y cmake
+- macOS: brew install cmake
+- Windows: choco install -y cmake
+
+Команди для фіксації змін:
+````bash
+git add .github/workflows/ci.yml
+git commit -m "ci: use lukka/get-cmake@v3 instead of v4"
+git push
+````
+
+Denysiak-Mykola: Виканай на ci.bat і ci.sh ці пункти
+○ Забезпечте права на виконання (chmod +x build.sh) та зафіксуйте 
+зміни. 
+○ Створіть крок, який запускає тести за допомогою CTest (частина CMake), 
+і переконайтеся, що він виконується на всіх трьох ОС: 
+
+GitHub Copilot: GitHub Copilot
+
+Оновив workflow, додав кроки для встановлення права виконання та запуску ваших CI-скриптів на всіх трьох ОС (Linux, macOS, Windows). Також додаю команди для фіксації прав виконання в репозиторії.
+
+````yaml
+// ...existing code...
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    name: Cross build on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config
+        shell: bash
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          sudo xcode-select --install || true
+          brew update || true
+          brew install pkg-config || true
+        shell: bash
+
+      - name: Setup CMake (cross-platform)
+        uses: lukka/get-cmake@v3
+        with:
+          version: 'latest'
+
+      - name: Make Unix script executable
+        if: runner.os != 'Windows'
+        run: chmod +x ci.sh
+        shell: bash
+
+      - name: Run CI script (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ./ci.sh
+        shell: bash
+
+      - name: Run CI script (Windows)
+        if: runner.os == 'Windows'
+        run: .\ci.bat
+        shell: pwsh
+
+      - name: Upload build artifacts (Deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build/**
+// ...existing code...
+````
+
+Команди для локального фіксування прав виконання і коміту (з кореня репозиторію):
+
+- Unix / WSL / Git Bash:
+````bash
+chmod +x ci.sh
+git add ci.sh .github/workflows/ci.yml ci.bat
+git commit -m "ci: run platform CI scripts and mark ci.sh executable"
+git push
+````
+
+- Якщо потрібно встановити біт виконання через git (Windows) і не змінювати локальні права:
+````bash
+git update-index --add --chmod=+x ci.sh
+git add ci.sh .github/workflows/ci.yml ci.bat
+git commit -m "ci: run platform CI scripts and mark ci.sh executable"
+git push
+````
+
+Це забезпечить:
+- створення build, перехід у нього та виклик cmake .. / cmake --build . (реалізовано в ci.sh та ci.bat),
+- запуск тестів через ctest (в обох скриптах),
+- виконання тестового кроку на ubuntu-latest, windows-latest та macos-latest.
+
+Denysiak-Mykola: Ці пункти  мають бути у цих файлах
+
+GitHub Copilot: GitHub Copilot
+
+Оновив обидва скрипти — додано створення каталогу, перехід у нього, cmake .., cmake --build ., а також безпечні дії для встановлення прапора виконання для ci.sh (chmod/git update-index) — виконання змін не вплине на CI раннер (не робить комітів у Actions).
+
+````bash
+# ...existing code...
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+echo "=== CI: start ==="
+
+# If a build.sh exists in repo root, try to make it executable (safe: only local)
+if [ -f "../build.sh" ]; then
+  chmod +x ../build.sh || true
+  # If running locally (not in GitHub Actions) try to update git index to record exec bit
+  if [ -z "${GITHUB_ACTIONS:-}" ] && command -v git >/dev/null 2>&1; then
+    git update-index --add --chmod=+x ../build.sh || true
+  fi
+fi
+
+# create build dir and enter
+mkdir -p build
+cd build
+
+echo "--- cmake configure ---"
+cmake .. || { echo "CMake configure failed"; exit 1; }
+
+# determine parallelism
+if command -v nproc >/dev/null 2>&1; then
+  PARALLEL=$(nproc)
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+else
+  PARALLEL=2
+fi
+
+echo "--- build ---"
+cmake --build . --parallel "${PARALLEL}" || { echo "Build failed"; exit 1; }
+
+echo "--- run tests (ctest) ---"
+if command -v ctest >/dev/null 2>&1; then
+  ctest --output-on-failure || { echo "Tests failed"; exit 1; }
+else
+  echo "ctest not found; skipping tests"
+fi
+
+# return to repo root
+cd ..
+
+echo "=== CI: done ==="
+exit 0
+# ...existing code...
+````
+
+````bat
+REM ...existing code...
+@echo off
+setlocal
+
+echo === CI: start ===
+
+REM Try to mark ci.sh executable in git index when running locally (skip in Actions)
+where git >nul 2>&1
+if %ERRORLEVEL%==0 (
+  if not defined GITHUB_ACTIONS (
+    git update-index --add --chmod=+x ci.sh 2>nul || echo Warning: could not set exec bit in git index
+  )
+)
+
+rem Create build directory if missing
+if not exist build (
+  mkdir build
+)
+
+rem Enter build directory
+pushd build
+
+rem Configure project
+echo --- cmake configure ---
+cmake .. || (echo CMake configure failed & popd & exit /b 1)
+
+rem Build project (use Release config on Windows)
+echo --- build ---
+cmake --build . --config Release || (echo Build failed & popd & exit /b 1)
+
+rem Run tests with CTest (output on failure)
+echo --- run tests (ctest) ---
+ctest --output-on-failure || (echo Tests failed & popd & exit /b 1)
+
+rem Return to repo root
+popd
+
+echo === CI: done ===
+endlocal
+exit /b 0
+REM ...existing code...
+````
+
+Команди для локальної фіксації прав та коміту:
+````bash
+chmod +x ci.sh
+git add ci.sh ci.bat
+git commit -m "ci: ensure build flow (mkdir, cd build, cmake .., cmake --build .), set exec bit for ci.sh"
+git push
+````
+
+Якщо потрібно — застосую додаткові правки або внесу ті ж зміни у workflow (.github/workflows/ci.yml) щоб викликати ці скрипти на всіх ОС.
+
+Denysiak-Mykola: Please find a solution for failing job 53913822077. Use the logs, job definition, and any referenced files where the failure occurred. Keep your response focused on the solution and include code suggestions when appropriate.
+
+GitHub Copilot: GitHub Copilot
+
+Проблема
+- З логів: CMake не може згенерувати build system через відсутній/непрацюючий C компілятор (Missing variable CMAKE_C_COMPILE_OBJECT). Це означає, що на раннері не встановлені потрібні інструменти збірки (gcc/g++/make / Xcode tools) або CTest не запускалися після білду.
+- Також був збій через невірну версію дії get-cmake (вже виправлено на v3).
+
+Рішення (швидке та робоче)
+1) Встановити повні інструменти збірки на Linux/macOS перед запуском CMake (build-essential / Xcode tools / ninja).
+2) Зробити ci.sh виконуваним у раннері (chmod +x) та, опціонально, зафіксувати exec-bit у git локально.
+3) Додати явний крок запуску тестів через CTest, окремо для Linux/macOS та Windows, щоб помилка тестів дала фейл job.
+
+Оновлений ci.yml (рекомендується замінити існуючий):
+
+````yaml
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    name: Cross build on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config cmake ninja-build
+        shell: bash
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          sudo xcode-select --install || true
+          brew update || true
+          brew install cmake ninja
+        shell: bash
+
+      - name: Setup CMake (cross-platform)
+        uses: lukka/get-cmake@v3
+        with:
+          version: 'latest'
+
+      - name: Ensure ci.sh is executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x ci.sh
+        shell: bash
+
+      - name: Configure with CMake (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -G Ninja
+        shell: bash
+
+      - name: Configure with CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: pwsh
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake --build build --config Release -- -j$(nproc)
+        shell: bash
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release -- /m
+        shell: pwsh
+
+      - name: Run tests (ctest) Linux/macOS
+        if: runner.os != 'Windows'
+        run: ctest --test-dir build --output-on-failure
+        shell: bash
+
+      - name: Run tests (ctest) Windows
+        if: runner.os == 'Windows'
+        run: ctest --test-dir build --output-on-failure
+        shell: pwsh
+
+      - name: Upload build artifacts (Deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build/**
+````
+
+Додаткові рекомендації
+- Якщо ви хочете запускати ваші локальні скрипти ci.sh/ci.bat замість вбудованих кроків — додайте кроки Run CI script (Unix/Windows) після встановлення інструментів. Але навіть у цьому випадку забезпечте установку build-essential/xcode та chmod +x ci.sh у workflow.
+- Щоб зафіксувати exec-біт у репозиторії локально (не в Actions), виконайте в корені репо:
+  - Unix/WSL:
+    ```
+    chmod +x ci.sh
+    git add ci.sh ci.yml ci.bat
+    git commit -m "ci: install build tools and run ctest on all platforms; make ci.sh executable"
+    git push
+    ```
+  - Альтернатива (Windows/git): 
+    ```
+    git update-index --add --chmod=+x ci.sh
+    git add ci.sh ci.yml ci.bat
+    git commit -m "ci: make ci.sh executable"
+    git push
+    ```
+
+Якщо після цих змін job все ще падає — прикладіть останні логи configure/build (повний CMake output) і я підкажу точнішу правку (помилки лінкеру/відсутні залежності тощо).Якщо після цих змін job все ще падає — прикладіть останні логи configure/build (повний CMake output) і я підкажу точнішу правку (помилки лінкеру/відсутні залежності тощо).
+
+Denysiak-Mykola: Please find a solution for failing job 53914223395. Use the logs, job definition, and any referenced files where the failure occurred. Keep your response focused on the solution and include code suggestions when appropriate.
+
+GitHub Copilot: GitHub Copilot
+
+Проблема
+- CI падає при конфігуруванні через нестабільне або заблоковане завантаження GoogleTest (FetchContent) — логи показують помилки HTTP/404 і помилку checkout тегу. Потрібно зробити підключення GTest більш надійним та/або поставити системний пакет у раннер перед викликом CMake.
+
+Рішення (швидке та надійне)
+1) У CMakeLists.txt використовувати find_package(GTest) спочатку і лише якщо не знайдено — застосовувати FetchContent. Так CI буде використовувати системний/пакунковий googletest коли він встановлений, і тільки при відсутності — клонити репо.  
+2) В ci.yml додати кроки інсталяції googletest на Linux/macOS (щоб уникнути мережевих FetchContent проблем) — на Windows залишити FetchContent fallback або встановити через vcpkg при потребі.  
+3) Перед повторним запуском видалити папку build (щоб очистити кеш failed FetchContent): rm -rf build / rmdir /s /q build.
+
+Зміни (рекомендовані) — застосуйте у репозиторії.
+
+- CMakeLists.txt — перевірка find_package і умовний FetchContent, плюс коректне підключення цільового імені:
+
+````cmake
+# ...existing code...
+# ----- testing support (GoogleTest) -----
+option(BUILD_TESTS "Build tests" ON)
+if(BUILD_TESTS)
+    enable_testing()
+
+    # try system package first (more reliable in CI)
+    find_package(GTest CONFIG QUIET)
+    if(NOT GTest_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG        main
+            GIT_SHALLOW    TRUE
+        )
+        set(DOWNLOAD_EXTRACT_TIMESTAMP TRUE CACHE BOOL "" FORCE)
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(googletest)
+    endif()
+
+    # determine gtest main target name
+    if(TARGET GTest::gtest_main)
+        set(GTEST_MAIN_TARGET GTest::gtest_main)
+    elseif(TARGET gtest_main)
+        set(GTEST_MAIN_TARGET gtest_main)
+    else()
+        message(FATAL_ERROR "GoogleTest not available as a target")
+    endif()
+
+    if(EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")
+        add_subdirectory(tests)
+    else()
+        if(EXISTS "${CMAKE_SOURCE_DIR}/tests/unit_tests.cpp")
+            add_executable(unit_tests
+                "${CMAKE_SOURCE_DIR}/tests/unit_tests.cpp"
+            )
+            target_include_directories(unit_tests PRIVATE
+                "${CMAKE_SOURCE_DIR}"
+                "${CMAKE_SOURCE_DIR}/include"
+            )
+            target_link_libraries(unit_tests PRIVATE ${GTEST_MAIN_TARGET})
+            # If project library exists, link it so tests use same implementation
+            if(TARGET ${PROJECT_NAME}_lib)
+                target_link_libraries(unit_tests PRIVATE ${PROJECT_NAME}_lib)
+            endif()
+            include(GoogleTest)
+            gtest_discover_tests(unit_tests)
+            message(STATUS "Added unit_tests target (tests/unit_tests.cpp) and linked GoogleTest")
+        else()
+            message(STATUS "No tests/CMakeLists.txt and no tests/unit_tests.cpp found; skipping tests.")
+        endif()
+    endif()
+endif()
+# ...existing code...
+````
+
+- ci.yml — додати інсталяцію googletest на Linux/macOS (щоб CMake знайшов системний пакет і не завантажував його через мережу). Показано лише змінені/додані кроки:
+
+````yaml
+# ...existing code...
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config cmake ninja-build git
+          # install googletest from package and build+install (so find_package works)
+          sudo apt-get install -y libgtest-dev || true
+          if [ -d /usr/src/googletest ]; then
+            sudo cmake -S /usr/src/googletest -B /usr/src/googletest/build
+            sudo cmake --build /usr/src/googletest/build --target install
+          fi
+        shell: bash
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select --install || true
+          brew update || true
+          brew install cmake ninja git || true
+          brew install googletest || true
+          # add brew prefix to CMAKE_PREFIX_PATH so find_package can see brew-installed googletest
+          echo "/opt/homebrew/opt/googletest/lib/cmake" >> $GITHUB_ENV || true
+        shell: bash
+# ...existing code...
+````
+
+Примітки й додаткові дії
+- Після внесення змін видаліть старий кеш build і запустіть CI знову:
+  - UNIX: rm -rf build
+  - Windows CMD: rmdir /s /q build
+- Якщо мережа у раннера блокована, тимчасово пропустіть тести додаванням -DBUILD_TESTS=OFF при виклику cmake у ci.yml (не рекомендовано на тривалий термін).
+- Переконайтесь, що у репо є main.cpp / main.cpp або тарґет hello, щоб exe створювався (ви вже маєте main.cpp).
+
+Якщо потрібно — внесу правки у CMakeLists.txt та ci.yml прямо (збережу зміни у файлах).
+
+Denysiak-Mykola: Current runner version: '2.328.0'
+Runner Image Provisioner
+Operating System
+Runner Image
+GITHUB_TOKEN Permissions
+Secret source: Actions
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Error: A task was canceled.
+
+GitHub Copilot: GitHub Copilot
+
+Problem summary (from logs)
+- Primary failures: network/FetchContent errors when CMake tried to download GoogleTest (HTTP 302→404, "failed to checkout tag 'release-1.14.0'") and a workflow step resolution/cancel (task canceled) likely caused by using an action/version that wasn't resolved reliably.
+- Root causes: unreliable network fetch during FetchContent and use of an external action (lukka/get-cmake) that produced resolution errors. Cached/partial downloads in build/ can also make repeated runs fail.
+
+Solution (concise)
+1. Stop relying on lukka/get-cmake in the workflow (avoids "unable to resolve action"/task cancel). Use OS package managers (apt/brew/choco) or rely on preinstalled CMake on runners.
+2. Ensure CI installs/builds GoogleTest via system packages where possible (Linux/macOS), and use vcpkg on Windows (more reliable than runtime FetchContent). This prevents network download failures at configure time.
+3. Clean build directory at the start (rm -rf build / rmdir /s /q build) to avoid stale partial downloads.
+4. Keep a safe FetchContent fallback in CMakeLists but prefer find_package first.
+5. Re-run CI after applying changes.
+
+Code suggestions — workflow update
+Replace ci.yml with the following (this removes lukka/get-cmake, cleans build, installs gtest reliably, and runs tests on all three OS):
+
+````yaml
+name: CI
+
+on:
+  push:
+    branches:
+      - '*develop*'
+      - '*master*'
+  pull_request:
+    branches:
+      - '*develop*'
+      - '*master*'
+
+jobs:
+  cross_build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    name: Build & test on ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clean previous build (safe)
+        run: |
+          if [ -d build ]; then rm -rf build; fi
+        shell: bash
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config cmake ninja-build git
+          # install libgtest and build+install it so find_package(GTest) works
+          sudo apt-get install -y libgtest-dev || true
+          if [ -d /usr/src/googletest ]; then
+            sudo cmake -S /usr/src/googletest -B /usr/src/googletest/build
+            sudo cmake --build /usr/src/googletest/build --target install
+          fi
+        shell: bash
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update || true
+          brew install cmake ninja git || true
+          brew install googletest || true
+        shell: bash
+
+      - name: Install build tools (Windows + vcpkg + gtest)
+        if: runner.os == 'Windows'
+        run: |
+          choco install -y --no-progress cmake git ninja || true
+          set VCPKG_ROOT=%RUNNER_TEMP%\vcpkg
+          git clone https://github.com/microsoft/vcpkg.git "%VCPKG_ROOT%"
+          pushd "%VCPKG_ROOT%"
+          .\bootstrap-vcpkg.bat
+          .\vcpkg.exe install gtest:x64-windows
+          popd
+        shell: pwsh
+
+      - name: Configure (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $env:VCPKG_ROOT = "$env:RUNNER_TEMP\\vcpkg"
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\\scripts\\buildsystems\\vcpkg.cmake"
+        shell: pwsh
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake --build build --config Release -- -j$(nproc)
+        shell: bash
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release -- /m
+        shell: pwsh
+
+      - name: Run tests (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ctest --test-dir build --output-on-failure
+        shell: bash
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        run: ctest --test-dir build --output-on-failure
+        shell: pwsh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build/**
+````
+
+CMakeLists adjustments (robust FetchContent fallback)
+- Keep find_package(GTest) first and only use FetchContent as fallback. If FetchContent used, prefer GIT_REPOSITORY with GIT_TAG=main (or a specific commit) and shallow clone. Add DOWNLOAD_EXTRACT_TIMESTAMP setting to avoid timestamp warnings.
+
+Suggested snippet to replace the GoogleTest section in CMakeLists.txt:
+
+````cmake
+# ...existing code...
+option(BUILD_TESTS "Build tests" ON)
+if(BUILD_TESTS)
+    enable_testing()
+
+    # prefer system package
+    find_package(GTest CONFIG QUIET)
+    if(NOT GTest_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG        main
+            GIT_SHALLOW    TRUE
+        )
+        # prefer extracted-timestamp behavior
+        set(DOWNLOAD_EXTRACT_TIMESTAMP TRUE CACHE BOOL "" FORCE)
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(googletest)
+    endif()
+
+    # select gtest main target
+    if(TARGET GTest::gtest_main)
+        set(GTEST_MAIN_TARGET GTest::gtest_main)
+    elseif(TARGET gtest_main)
+        set(GTEST_MAIN_TARGET gtest_main)
+    else()
+        message(FATAL_ERROR "GoogleTest not available as a target")
+    endif()
+
+    # add tests as before...
+endif()
+# ...existing code...
+````
+
+Cleanup before re-run
+- Remove build cache and any partial downloads before re-running on CI or locally:
+  - Linux/macOS: rm -rf build
+  - Windows CMD / PowerShell: rmdir /s /q build
+
+Why this fixes job 53914223395
+- Avoids runtime network failures by preferring system-installed googletest where possible and using vcpkg on Windows.
+- Removes dependency on an external action version that caused task cancellation.
+- Cleans stale partial downloads so FetchContent won't repeatedly fail on cached artifacts.
+
+If you want, I can:
+- Commit the ci.yml and CMakeLists.txt patches for you.
+- Or change CMakeLists to disable BUILD_TESTS by default in CI (quick temporary workaround: pass -DBUILD_TESTS=OFF to cmake) — tell me which you prefer.
+
+Denysiak-Mykola: Run choco install -y --no-progress cmake git ninja || true
+Chocolatey v2.5.1
+Installing the following packages:
+cmake;git;ninja
+By installing, you accept licenses for the packages.
+Downloading package from source 'https://community.chocolatey.org/api/v2/'
+
+cmake.install v4.1.2 [Approved]
+cmake.install package files install completed. Performing other installation steps.
+Installing 64-bit cmake.install...
+Error: The operation was canceled.
+
+GitHub Copilot: GitHub Copilot
+
+Коротко — причина помилки в Windows-області: choco install зачіпив крок з довгим/блокованим інсталятором ("The operation was canceled"). Найнадійніший фікс — перестати покладатися на choco у workflow (на hosted runners CMake/Git часто вже встановлені) і замінити інсталяцію через choco на bootstrap vcpkg + встановлення googletest (або покластися на системний GTest для Linux/macOS). Також додаю простий retry при клонуванні vcpkg, щоб уникнути фейлів через мережеві глюки.
+
+Зробіть ці зміни у ci.yml — замініть поточний блок "Install build tools (Windows + vcpkg + gtest)" на наступний:
+
+````yaml
+# ...existing code...
+      - name: Install build tools (Windows + vcpkg + gtest)
+        if: runner.os == 'Windows'
+        run: |
+          # rely on preinstalled cmake/git on hosted runner; bootstrap vcpkg and install gtest
+          $env:VCPKG_ROOT = "$env:RUNNER_TEMP\\vcpkg"
+          $retries = 3
+          for ($i = 1; $i -le $retries; $i++) {
+            if (Test-Path $env:VCPKG_ROOT) { Remove-Item $env:VCPKG_ROOT -Recurse -Force -ErrorAction SilentlyContinue }
+            git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT && break
+            Write-Host "vcpkg clone failed (attempt $i/$retries)"
+            Start-Sleep -Seconds (5 * $i)
+            if ($i -eq $retries) { Write-Error "vcpkg clone failed after $retries attempts"; exit 1 }
+          }
+          Push-Location $env:VCPKG_ROOT
+          .\bootstrap-vcpkg.bat -disableMetrics
+          .\vcpkg.exe install gtest:x64-windows
+          Pop-Location
+        shell: pwsh
+# ...existing code...
+````
+
+Рекомендації додаткові (швидкі та практичні)
+- Видаліть/очистіть build перед новим запуском, щоб позбутись частково завантажених артефактів:
+  - Windows (локально або у runner): rmdir /s /q build
+  - Unix: rm -rf build
+- Якщо хочете тимчасово обійти проблему і зібрати executable швидко — пропускати тести: додайте -DBUILD_TESTS=OFF у виклик cmake під час налагодження CI.
+- Якщо потрібен choco знову: додайте retry навколо choco або явний timeout, але краще уникати choco на hosted Windows runners (вони мають CMake / Git вже).
+- Переконайтеся, що у CMakeLists.txt ви використовуєте find_package(GTest) як первинний варіант і FetchContent як fallback (у вас це вже зроблено).
+
+Що виконати зараз
+1) Замініть блок у ci.yml як вище.
+2) Видаліть папку build в репозиторії runner cache або перед наступним запуском CI.
+3) Запустіть workflow повторно.
+
+Якщо після цього буде інша помилка — пришліть лог фейлу конфігурації/білду (повні рядки помилки) і дам точніші правки.
+
+Denysiak-Mykola: ating files:  77% (10020/13012)
+Updating files:  78% (10150/13012)
+Updating files:  79% (10280/13012)
+Updating files:  80% (10410/13012)
+Updating files:  81% (10540/13012)
+Updating files:  82% (10670/13012)
+Updating files:  83% (10800/13012)
+Updating files:  84% (10931/13012)
+Updating files:  85% (11061/13012)
+Updating files:  86% (11191/13012)
+Updating files:  87% (11321/13012)
+Updating files:  88% (11451/13012)
+Updating files:  89% (11581/13012)
+Updating files:  90% (11711/13012)
+Updating files:  91% (11841/13012)
+Updating files:  92% (11972/13012)
+Updating files:  93% (12102/13012)
+Updating files:  94% (12232/13012)
+Updating files:  94% (12317/13012)
+Updating files:  95% (12362/13012)
+Updating files:  96% (12492/13012)
+Updating files:  97% (12622/13012)
+Updating files:  98% (12752/13012)
+Updating files:  99% (12882/13012)
+Updating files: 100% (13012/13012)
+Updating files: 100% (13012/13012), done.
+break: D:\a\_temp\05555185-9f49-4f45-b2f3-d97ac26974ea.ps1:7
+Line |
+   7 |  … clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT && break
+     |                                                                    ~~~~~
+     | The term 'break' is not recognized as a name of a cmdlet, function, script file, or executable program. Check
+     | the spelling of the name, or if a path was included, verify that the path is correct and try again.
+Error: Process completed with exit code 1.
+
+GitHub Copilot: 
